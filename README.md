@@ -51,6 +51,13 @@ translates Codex tools into the form your model server accepts. See
 [model_proxy/README.md](model_proxy/README.md) for the routing pattern and
 what gets rewritten.
 
+**Where the proxy runs.** The proxy must be listening wherever Codex sends
+its traffic — Codex's one provider is this router, so while it is down every
+model in that session fails, ChatGPT models included. Run it per machine
+(this repo's default, with `127.0.0.1`), or run one shared proxy on a
+reachable host and point other machines' `base_url` at it. See
+[model_proxy/README.md](model_proxy/README.md) for the trade-offs.
+
 ## Repository layout
 
 - [model_proxy/](model_proxy/) — the proxy code, the launchd template, and the

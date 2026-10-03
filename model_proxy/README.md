@@ -40,6 +40,37 @@ For a multi-model launchd install, replace the single-model environment
 variables in the rendered plist with `CODEX_ROUTER_ROUTES` (the template
 shows the shape).
 
+## Where the proxy runs
+
+The proxy must be listening wherever Codex sends its model traffic. Codex
+has one active provider per session, and that provider is this router — so
+while it is down, every model in that session fails, including the ChatGPT
+models, not just your custom ones.
+
+Two deployment shapes:
+
+**Per machine (this repo's default).** Install the proxy on every machine
+running the ChatGPT app. The config keeps
+`base_url = "http://127.0.0.1:4100/v1"` on each machine, and the model
+server can live anywhere that machine can reach. Each machine's proxy is
+independent: if one is down, only that machine's Codex is affected.
+
+**One shared proxy.** Run the proxy on a single reachable host — for example
+the machine hosting your models, or a NAS over Tailscale — and point every
+Codex install at it:
+
+```toml
+base_url = "http://your-proxy-host:4100/v1"
+```
+
+You maintain one proxy instead of several, but:
+
+- that host becomes a single point of failure for every machine's model
+  traffic, ChatGPT models included;
+- ChatGPT credentials transit that host, because `requires_openai_auth = true`
+  makes Codex attach them and the proxy forwards them to the ChatGPT backend;
+- every request pays a network hop.
+
 ## What the proxy rewrites, and why
 
 - **Tool translation.** Codex sends Responses Lite tools: nested `namespace`

@@ -87,6 +87,23 @@ to do that end to end.
   structured host-side HTTP/search tool is the fix if the model needs web
   access; the proxy alone cannot provide it.
 
+## Where the proxy runs
+
+Codex's single provider is the router, so while the proxy is down every
+model in that session fails, including ChatGPT models. Two deployment
+shapes:
+
+- **Per machine**: install it on every machine running the ChatGPT app, with
+  `base_url = "http://127.0.0.1:4100/v1"` on each machine. If one machine's
+  proxy is down, only that machine's Codex is affected.
+- **One shared proxy**: run it on a single reachable host (the model box, a
+  NAS over Tailscale) and point every Codex install's `base_url` at that
+  host. That host then carries ChatGPT credentials and becomes a single
+  point of failure for every machine's model traffic.
+
+Ask the user which shape they want when integrating; the per-machine shape
+is the repo default.
+
 ## Key lesson: the catalog is a replacement
 
 When `model_catalog_json` is set, Codex shows exactly the models in that
