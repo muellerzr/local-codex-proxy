@@ -15,6 +15,11 @@
     <string>__GLM_BASE__</string>
     <key>CODEX_ROUTER_GLM_MODEL</key>
     <string>__GLM_MODEL__</string>
+    <!-- To serve several custom models from one proxy, replace the two
+         keys above with a single routes mapping:
+    <key>CODEX_ROUTER_ROUTES</key>
+    <string>{"model-one":"http://host-one:30000/v1","model-two":"http://host-two:8000/v1"}</string>
+    -->
   </dict>
   <key>RunAtLoad</key>
   <true/>

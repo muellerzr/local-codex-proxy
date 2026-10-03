@@ -23,9 +23,10 @@ to do that end to end.
 ## Integration procedure
 
 1. **Gather from the user**: the endpoint URL (an OpenAI-compatible
-   `/v1` endpoint, e.g. `http://100.96.198.48:30000/v1`) and the exact model
-   slug the server reports. If either is unknown, check the server yourself
-   first: `curl <endpoint>/v1/models` and `curl <endpoint>/health`.
+   `/v1` endpoint, e.g. `http://100.96.198.48:30000/v1`) for each model and
+   the exact model slug each server reports. If either is unknown, check the
+   server yourself first: `curl <endpoint>/v1/models` and
+   `curl <endpoint>/health`.
 2. **Update the catalog entry**: edit
    `codex_files_to_modify/glm-model-entry.json` so `slug` matches the server's
    model ID exactly, and set `display_name`, `context_window`, and the
@@ -33,13 +34,17 @@ to do that end to end.
 3. **Merge the catalog**: get the base catalog from the user's current Codex
    install — the file referenced by `model_catalog_json` in
    `~/.codex/config.toml` if present, otherwise ask the user or fetch the
-   catalog Codex pulled from its backend. Then:
+   catalog Codex pulled from its backend. The merged catalog must keep every
+   existing model: `model_catalog_json` replaces Codex's model list
+   entirely, so a catalog holding only the custom model hides the other
+   models from the picker. Then:
    `python3 codex_files_to_modify/merge_model_catalog.py --base <base.json> --entry codex_files_to_modify/glm-model-entry.json --out ~/.codex/model-catalogs/models-with-glm.json`
 4. **Start or restart the proxy**: run
    `model_proxy/install.sh <endpoint> <model-slug>` (macOS launchd), or run
    `CODEX_ROUTER_GLM_BASE=<endpoint> CODEX_ROUTER_GLM_MODEL=<model-slug> python3 model_proxy/codex_model_router.py`
-   manually. Verify `curl http://127.0.0.1:4100/health` returns
-   `{"status":"ok",...}`.
+   manually. For several models from one proxy, set `CODEX_ROUTER_ROUTES` to
+   a JSON `{slug: base-url}` mapping instead (see `model_proxy/README.md`).
+   Verify `curl http://127.0.0.1:4100/health` returns `{"status":"ok",...}`.
 5. **Edit `~/.codex/config.toml`**: follow
    `codex_files_to_modify/config.toml.snippet`. Set
    `model_catalog_json` to the merged catalog, `model` to the model slug, and
@@ -81,6 +86,15 @@ to do that end to end.
   app connectors are host-side capabilities, not proxy capabilities. A
   structured host-side HTTP/search tool is the fix if the model needs web
   access; the proxy alone cannot provide it.
+
+## Key lesson: the catalog is a replacement
+
+When `model_catalog_json` is set, Codex shows exactly the models in that
+file and nothing else. A catalog containing only the custom model hides
+astra, sol, terra, luna, and the review models. Always merge the custom
+entry into a catalog that keeps every existing model, then point
+`model_catalog_json` at the merged file. See
+`codex_files_to_modify/README.md`.
 
 ## Diagnosing failures
 

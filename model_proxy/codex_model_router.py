@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Route Codex Responses requests to ChatGPT or a local SGLang model."""
+"""Route Codex Responses requests to ChatGPT or custom model endpoints."""
 
 import json
 import os
@@ -23,6 +23,33 @@ def upstream_parts(base):
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError(f"invalid upstream URL: {base}")
     return parsed.scheme, parsed.netloc, parsed.path.rstrip("/")
+
+
+def load_custom_routes():
+    """Read CODEX_ROUTER_ROUTES: a JSON object mapping model slugs to base URLs."""
+    raw = os.environ.get("CODEX_ROUTER_ROUTES", "")
+    if not raw:
+        return {}
+    try:
+        routes = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"CODEX_ROUTER_ROUTES is not valid JSON: {exc}")
+    if not isinstance(routes, dict):
+        raise SystemExit(
+            "CODEX_ROUTER_ROUTES must be a JSON object mapping model slugs "
+            "to base URLs"
+        )
+    for model, base in routes.items():
+        try:
+            upstream_parts(base)
+        except ValueError as exc:
+            raise SystemExit(f"CODEX_ROUTER_ROUTES[{model!r}]: {exc}")
+    return routes
+
+
+CUSTOM_ROUTES = load_custom_routes()
+if not CUSTOM_ROUTES and GLM_BASE:
+    CUSTOM_ROUTES = {GLM_MODEL: GLM_BASE}
 
 
 def read_json_model(body):
@@ -197,7 +224,7 @@ class RouterHandler(BaseHTTPRequestHandler):
         self.forward(self.path, body, read_json_model(body))
 
     def forward(self, path, body, model):
-        use_glm = model == GLM_MODEL
+        use_custom = model in CUSTOM_ROUTES if model else False
         namespace_map = {}
         request_stream = False
         if use_glm:
@@ -233,7 +260,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                     tool_names,
                     removed_tools,
                 )
-        base = GLM_BASE if use_glm else OPENAI_BASE
+        base = CUSTOM_ROUTES[model] if use_custom else OPENAI_BASE
         scheme, netloc, prefix = upstream_parts(base)
         api_path = path if path.startswith("/") else "/" + path
         if api_path == "/v1":
@@ -256,7 +283,7 @@ class RouterHandler(BaseHTTPRequestHandler):
         connection = (HTTPSConnection(netloc, timeout=300, context=ssl.create_default_context())
                       if scheme == "https" else HTTPConnection(netloc, timeout=300))
         try:
-            route = "GLM/SGLang" if use_glm else "ChatGPT"
+            route = "custom" if use_custom else "ChatGPT"
             self.log_message("%s %s model=%s -> %s%s", self.command, path, model, route, target)
             connection.request(self.command, target, body=body or None, headers=headers)
             response = connection.getresponse()
@@ -326,16 +353,20 @@ class RouterHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not GLM_BASE:
+    if not CUSTOM_ROUTES:
         sys.stderr.write(
-            "Set CODEX_ROUTER_GLM_BASE to your model endpoint, "
-            "e.g. CODEX_ROUTER_GLM_BASE=http://your-host:30000/v1\n"
+            "No custom models configured. Set CODEX_ROUTER_ROUTES to a JSON "
+            "object mapping model slugs to base URLs, e.g. "
+            "CODEX_ROUTER_ROUTES='{\"my-model\":\"http://your-host:30000/v1\"}', "
+            "or set CODEX_ROUTER_GLM_BASE=http://your-host:30000/v1 for a "
+            "single model.\n"
         )
         sys.exit(2)
     server = ThreadingHTTPServer((HOST, PORT), RouterHandler)
+    routes_desc = ", ".join(f"{m} -> {b}" for m, b in sorted(CUSTOM_ROUTES.items()))
     print(
         f"Codex model router listening on http://{HOST}:{PORT}/v1 "
-        f"(codex models -> {OPENAI_BASE}, {GLM_MODEL} -> {GLM_BASE})",
+        f"(other models -> {OPENAI_BASE}; {routes_desc})",
         flush=True,
     )
     try:

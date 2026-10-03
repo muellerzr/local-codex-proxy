@@ -11,7 +11,7 @@ upstreams and routes by model name:
 Codex (127.0.0.1:4100)
   ├── every other model  ->  https://chatgpt.com/backend-api/codex
   │                          (ChatGPT auth forwarded)
-  └── glm-5.3-flash-nvfp4 ->  http://your-model-host:30000/v1
+  └── your custom models ->  http://your-model-host:30000/v1
                              (auth stripped, tools translated)
 ```
 
@@ -30,12 +30,36 @@ library. It:
   are present
 - exposes `GET /health`
 
+## Why it is built this way
+
+Two lessons from getting this working explain the design:
+
+**The model catalog is a replacement, not an addition.** When you set
+`model_catalog_json`, Codex uses that file as its complete model list. Every
+model in the file shows up in the picker; every model not in it disappears.
+That is why the custom models live in a merged catalog that also carries the
+normal astra, sol, terra, luna, and review models — leave them out and they
+vanish from Codex. See
+[codex_files_to_modify/README.md](codex_files_to_modify/README.md) for the
+full explanation and the anatomy of a model entry.
+
+**One provider, routed by model name.** Codex has exactly one active model
+provider per session. Pointing it straight at your model server makes every
+ChatGPT request go there and fail. The router lets one provider serve both
+upstreams, keeps ChatGPT credentials away from your model server, and
+translates Codex tools into the form your model server accepts. See
+[model_proxy/README.md](model_proxy/README.md) for the routing pattern and
+what gets rewritten.
+
 ## Repository layout
 
 - [model_proxy/](model_proxy/) — the proxy code, the launchd template, and the
-  installer
+  installer, plus [model_proxy/README.md](model_proxy/README.md) on routing
+  and tool translation
 - [codex_files_to_modify/](codex_files_to_modify/) — what to add to
   `~/.codex/config.toml`, the model-catalog entry, and the catalog merge script
+  plus [codex_files_to_modify/README.md](codex_files_to_modify/README.md) on
+  why the catalog works the way it does
 
 ## Quick deploy (macOS)
 
@@ -76,6 +100,9 @@ python3 merge_model_catalog.py --base /path/to/models.json \
 For a different model than GLM, edit `glm-model-entry.json` first: set
 `slug` to the exact model ID your server reports at `/v1/models`, the
 `display_name`, the `context_window`, and the supported reasoning levels.
+To serve several custom models from one proxy, set `CODEX_ROUTER_ROUTES`
+(a JSON `{slug: base-url}` mapping) instead of the single-model variables —
+see [model_proxy/README.md](model_proxy/README.md).
 
 ### 3. Point Codex at the router and the catalog
 
@@ -161,6 +188,7 @@ Common causes:
 | `CODEX_ROUTER_OPENAI_BASE` | `https://chatgpt.com/backend-api/codex` | ChatGPT upstream |
 | `CODEX_ROUTER_GLM_BASE` | unset (required) | your model endpoint |
 | `CODEX_ROUTER_GLM_MODEL` | `glm-5.3-flash-nvfp4` | model name routed to your endpoint |
+| `CODEX_ROUTER_ROUTES` | unset | JSON `{slug: base-url}` mapping for several custom models |
 
 ## Provenance
 
