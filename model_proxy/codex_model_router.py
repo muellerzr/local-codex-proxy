@@ -227,7 +227,7 @@ class RouterHandler(BaseHTTPRequestHandler):
         use_custom = model in CUSTOM_ROUTES if model else False
         namespace_map = {}
         request_stream = False
-        if use_glm:
+        if use_custom:
             try:
                 request_stream = bool(json.loads(body).get("stream"))
             except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
@@ -274,7 +274,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             lower = key.lower()
             if lower in {"host", "content-length", "connection"}:
                 continue
-            if use_glm and lower in {"authorization", "cookie"}:
+            if use_custom and lower in {"authorization", "cookie"}:
                 continue
             headers[key] = value
         if body:
