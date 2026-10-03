@@ -72,3 +72,22 @@ Responses at `/v1/responses`. If your model server only speaks chat
 completions, set `wire_api = "chat"`; the proxy forwards paths unchanged, but
 the tool translation assumes the Responses format, so a chat-only server
 needs its own translation step.
+
+## Staying current with model releases
+
+The merged catalog is a snapshot of the official catalog plus your custom
+entries. When OpenAI adds models, your file does not update itself: the new
+models stay hidden in Codex until you rebuild the catalog. Run
+[refresh_model_catalog.py](refresh_model_catalog.py) after a Codex update:
+
+```bash
+python3 refresh_model_catalog.py \
+    --current ~/.codex/model-catalogs/models-with-glm.json \
+    --client-version 26.930.31730
+```
+
+It fetches the current official catalog (through the router, or from a
+`--official` file), preserves every custom model, reports which models are
+new, and writes the merged catalog. The official models route through the
+proxy to the ChatGPT backend automatically, because routing is by model
+name for everything that is not a custom model.

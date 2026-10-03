@@ -141,6 +141,25 @@ models reject SGLang's tool format. The router exists so you never need that.
 Codex reads the provider configuration when a session starts. Restart Codex
 or open a new chat after changing the config or the router.
 
+## Staying current with model releases
+
+The merged catalog is a snapshot. When OpenAI adds models, your file does
+not update itself, and the new models stay hidden until you rebuild it.
+After a Codex update, re-merge from the current official catalog:
+
+```bash
+cd codex_files_to_modify
+python3 refresh_model_catalog.py \
+    --current ~/.codex/model-catalogs/models-with-glm.json \
+    --client-version 26.930.31730
+```
+
+The script fetches the official catalog through the router (or from a
+`--official` file without the network), keeps every custom model you already
+had, reports which models are new, and writes the merged catalog. Restart
+Codex or open a new chat afterwards. To find the current `client-version`,
+check the Codex app's About/version screen or the version the app reports.
+
 ### 5. Verify the path
 
 ```bash
