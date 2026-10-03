@@ -11,6 +11,8 @@
   </array>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>CODEX_ROUTER_CATALOG_OUT</key>
+    <string>__CATALOG_OUT__</string>
     <key>CODEX_ROUTER_GLM_BASE</key>
     <string>__GLM_BASE__</string>
     <key>CODEX_ROUTER_GLM_MODEL</key>

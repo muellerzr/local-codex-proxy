@@ -5,6 +5,8 @@ import json
 import os
 import ssl
 import sys
+import threading
+import time
 from http.client import HTTPSConnection, HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
@@ -16,6 +18,13 @@ OPENAI_BASE = os.environ.get("CODEX_ROUTER_OPENAI_BASE", "https://chatgpt.com/ba
 GLM_BASE = os.environ.get("CODEX_ROUTER_GLM_BASE", "")
 GLM_MODEL = os.environ.get("CODEX_ROUTER_GLM_MODEL", "glm-5.3-flash-nvfp4")
 HOST_EXEC_TOOL = "exec"
+CATALOG_OUT = os.environ.get("CODEX_ROUTER_CATALOG_OUT", "")
+REFRESH_HOURS = float(os.environ.get("CODEX_ROUTER_REFRESH_HOURS", "24"))
+AUTH_FILE = os.environ.get("CODEX_ROUTER_AUTH_FILE", "~/.codex/auth.json")
+APP_PLIST = os.environ.get(
+    "CODEX_ROUTER_APP_PLIST", "/Applications/ChatGPT.app/Contents/Info.plist"
+)
+CLIENT_VERSION_ENV = os.environ.get("CODEX_ROUTER_CLIENT_VERSION", "")
 
 
 def upstream_parts(base):
@@ -50,6 +59,80 @@ def load_custom_routes():
 CUSTOM_ROUTES = load_custom_routes()
 if not CUSTOM_ROUTES and GLM_BASE:
     CUSTOM_ROUTES = {GLM_MODEL: GLM_BASE}
+
+
+def read_client_version():
+    if CLIENT_VERSION_ENV:
+        return CLIENT_VERSION_ENV
+    try:
+        import plistlib
+        with open(APP_PLIST, "rb") as f:
+            return plistlib.load(f).get("CFBundleShortVersionString")
+    except (OSError, ValueError):
+        return None
+
+
+def refresh_catalog_once():
+    """Fetch the official catalog, merge custom models, and write the catalog file.
+
+    Official models are added, and every model already in the catalog whose
+    slug is not in the official list is preserved as a custom model. The file
+    is only rewritten when the model set actually changed.
+    """
+    if not CATALOG_OUT:
+        return
+    try:
+        with open(os.path.expanduser(AUTH_FILE), encoding="utf-8") as f:
+            token = json.load(f)["tokens"]["access_token"]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        sys.stderr.write(f"[codex-router] catalog refresh: no auth token ({exc})\n")
+        return
+    version = read_client_version()
+    if not version:
+        sys.stderr.write("[codex-router] catalog refresh: no client version\n")
+        return
+    scheme, netloc, prefix = upstream_parts(OPENAI_BASE)
+    connection = (HTTPSConnection(netloc, timeout=60, context=ssl.create_default_context())
+                  if scheme == "https" else HTTPConnection(netloc, timeout=60))
+    try:
+        connection.request(
+            "GET", f"{prefix}/models?client_version={version}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response = connection.getresponse()
+        data = json.loads(response.read())
+        official = data["models"] if isinstance(data, dict) else data
+    except Exception as exc:
+        sys.stderr.write(f"[codex-router] catalog refresh failed: {exc!r}\n")
+        return
+    finally:
+        connection.close()
+    try:
+        with open(CATALOG_OUT, encoding="utf-8") as f:
+            current = json.load(f)
+        current_models = current["models"] if isinstance(current, dict) else current
+    except (OSError, json.JSONDecodeError):
+        current_models = []
+    official_slugs = {m.get("slug") for m in official}
+    current_slugs = {m.get("slug") for m in current_models}
+    custom_models = [m for m in current_models if m.get("slug") not in official_slugs]
+    if official_slugs | {m.get("slug") for m in custom_models} == current_slugs:
+        sys.stderr.write("[codex-router] catalog refresh: no new models\n")
+        return
+    merged = {"models": list(official) + custom_models}
+    tmp_path = CATALOG_OUT + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(merged, f, indent=2)
+        f.write("\n")
+    os.replace(tmp_path, CATALOG_OUT)
+    new_slugs = sorted(official_slugs - current_slugs)
+    sys.stderr.write(f"[codex-router] catalog refreshed: added {', '.join(new_slugs)}\n")
+
+
+def catalog_refresh_loop():
+    while True:
+        refresh_catalog_once()
+        time.sleep(REFRESH_HOURS * 3600)
 
 
 def read_json_model(body):
@@ -353,7 +436,7 @@ class RouterHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not CUSTOM_ROUTES:
+    if not CUSTOM_ROUTES and not CATALOG_OUT:
         sys.stderr.write(
             "No custom models configured. Set CODEX_ROUTER_ROUTES to a JSON "
             "object mapping model slugs to base URLs, e.g. "
@@ -369,6 +452,8 @@ def main():
         f"(other models -> {OPENAI_BASE}; {routes_desc})",
         flush=True,
     )
+    if CATALOG_OUT:
+        threading.Thread(target=catalog_refresh_loop, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

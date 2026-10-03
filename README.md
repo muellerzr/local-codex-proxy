@@ -144,8 +144,38 @@ or open a new chat after changing the config or the router.
 ## Staying current with model releases
 
 The merged catalog is a snapshot. When OpenAI adds models, your file does
-not update itself, and the new models stay hidden until you rebuild it.
-After a Codex update, re-merge from the current official catalog:
+not update itself, and the new models stay hidden until the catalog is
+rebuilt — which is why the proxy can do it for you.
+
+### Automatic (default)
+
+When the proxy knows where the merged catalog lives, it fetches the current
+official catalog on a schedule (default daily), merges in every custom model
+you already had, and writes the catalog file. It reads the ChatGPT token
+from `~/.codex/auth.json` and the Codex app version from the app's own
+Info.plist, so nothing needs manual updating when the app changes.
+
+`./install.sh` turns this on automatically whenever
+`~/.codex/model-catalogs/models-with-glm.json` exists. The router log at
+`/tmp/codex-model-router.log` reports each refresh:
+`catalog refreshed: added <new models>` or `no new models`.
+
+Tune or disable with:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CODEX_ROUTER_CATALOG_OUT` | unset | merged catalog path; enables auto-refresh when set |
+| `CODEX_ROUTER_REFRESH_HOURS` | `24` | hours between refreshes |
+| `CODEX_ROUTER_CLIENT_VERSION` | unset | override the app version used for the fetch |
+| `CODEX_ROUTER_AUTH_FILE` | `~/.codex/auth.json` | ChatGPT token source |
+
+The refresh only rewrites the file when the model set actually changed, so
+new chats pick up new models within one refresh cycle and nothing else is
+disturbed.
+
+### Manual fallback
+
+The standalone script still works without the proxy running:
 
 ```bash
 cd codex_files_to_modify
@@ -153,12 +183,9 @@ python3 refresh_model_catalog.py \
     --current ~/.codex/model-catalogs/models-with-glm.json \
     --client-version 26.930.31730
 ```
-
-The script fetches the official catalog through the router (or from a
-`--official` file without the network), keeps every custom model you already
-had, reports which models are new, and writes the merged catalog. Restart
-Codex or open a new chat afterwards. To find the current `client-version`,
-check the Codex app's About/version screen or the version the app reports.
+It fetches the official catalog through the router (or from a `--official`
+file), keeps every custom model, reports which models are new, and writes
+the merged catalog. Restart Codex or open a new chat afterwards.
 
 ### 5. Verify the path
 

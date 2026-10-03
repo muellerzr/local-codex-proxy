@@ -113,6 +113,12 @@ entry into a catalog that keeps every existing model, then point
 `model_catalog_json` at the merged file. See
 `codex_files_to_modify/README.md`.
 
+The merged catalog is a snapshot: new model releases do not appear until it
+is rebuilt. The proxy auto-refreshes it when `CODEX_ROUTER_CATALOG_OUT` is
+set (the installer enables this when the merged catalog exists), and
+`codex_files_to_modify/refresh_model_catalog.py` is the manual fallback.
+After either runs, restart Codex or open a new chat to pick up new models.
+
 ## Diagnosing failures
 
 Isolate in this order: model server, proxy, launchd.
