@@ -1,0 +1,35 @@
+# Add to ~/.codex/config.toml
+# ${HOME} is not used in config.toml; write absolute paths.
+
+model_catalog_json = "/absolute/path/to/models-with-glm.json"
+model = "glm-5.3-flash-nvfp4"
+model_provider = "local_router"
+
+# One provider for ALL models. Codex has one active provider per session;
+# a global GLM provider makes every other request go to SGLang, which fails
+# because ChatGPT models reject SGLang's tool format.
+[model_providers.local_router]
+name = "Local model router"
+base_url = "http://127.0.0.1:4100/v1"
+wire_api = "responses"
+requires_openai_auth = true
+supports_websockets = false
+stream_max_retries = 3
+stream_idle_timeout_ms = 120000
+
+# Optional: direct-to-SGLang profile for troubleshooting.
+# Use with: codex --profile glm53flash
+[model_providers.glm_5_3_flash]
+name = "GLM 5.3 Flash via SGLang"
+base_url = "http://your-model-host:30000/v1"
+wire_api = "responses"
+requires_openai_auth = false
+supports_websockets = false
+stream_max_retries = 3
+stream_idle_timeout_ms = 120000
+
+[profiles.glm53flash]
+model = "glm-5.3-flash-nvfp4"
+model_provider = "glm_5_3_flash"
+model_catalog_json = "/absolute/path/to/models-with-glm.json"
+model_reasoning_effort = "max"

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.openai.codex-model-router</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON_PATH__</string>
+    <string>__ROUTER_PATH__</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>CODEX_ROUTER_GLM_BASE</key>
+    <string>__GLM_BASE__</string>
+    <key>CODEX_ROUTER_GLM_MODEL</key>
+    <string>__GLM_MODEL__</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/codex-model-router.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/codex-model-router.log</string>
+</dict>
+</plist>
