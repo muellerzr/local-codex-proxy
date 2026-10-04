@@ -141,6 +141,20 @@ models reject SGLang's tool format. The router exists so you never need that.
 Codex reads the provider configuration when a session starts. Restart Codex
 or open a new chat after changing the config or the router.
 
+If the model picker still shows only the built-in models after this step,
+the desktop app may be reading its own cache at
+`~/.codex/models_cache.json` instead of the merged catalog. Synchronize
+that cache with the merged catalog (keep a backup), then fully quit and
+reopen Codex:
+
+```bash
+cp ~/.codex/models_cache.json ~/.codex/models_cache.json.bak
+python3 codex_files_to_modify/refresh_model_catalog.py \
+    --current ~/.codex/model-catalogs/models-with-glm.json \
+    --official /path/to/merged-catalog.json \
+    --cache ~/.codex/models_cache.json
+```
+
 ## Staying current with model releases
 
 The merged catalog is a snapshot. When OpenAI adds models, your file does
@@ -172,6 +186,12 @@ Tune or disable with:
 The refresh only rewrites the file when the model set actually changed, so
 new chats pick up new models within one refresh cycle and nothing else is
 disturbed.
+
+One caveat: if a machine's picker was fixed by synchronizing
+`models_cache.json` directly, an app update can overwrite that cache with
+the official list and hide the custom models again. The durable source is
+`model_catalog_json` — when it points at the merged catalog, the picker
+reads it regardless of the cache.
 
 ### Manual fallback
 

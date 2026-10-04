@@ -30,6 +30,24 @@ Where the base catalog comes from:
 - otherwise Codex fetched its catalog from its backend when it started; copy
   the catalog your install uses, or ask a Codex agent to retrieve it.
 
+## The desktop app also keeps its own model cache
+
+Besides the catalog, the desktop app keeps a cached model list at
+`~/.codex/models_cache.json`. When `model_catalog_json` is set and loads
+correctly, the catalog drives the model picker. But if the picker still
+shows only built-in models after you set it, the app is falling back to its
+cache — synchronize the cache with the merged catalog too, then fully quit
+and reopen Codex.
+
+Know the trade-off: the app can overwrite the cache with the official list
+(for example after an app update), which hides custom models again. The
+durable source is `model_catalog_json` pointing at the merged catalog.
+When you sync the cache, keep a backup of the original.
+
+[refresh_model_catalog.py](refresh_model_catalog.py) accepts
+`--cache ~/.codex/models_cache.json` to synchronize the cache with the same
+merge in one step.
+
 ## Anatomy of a model entry
 
 `glm-model-entry.json` is a worked example for GLM 5.3 Flash served by

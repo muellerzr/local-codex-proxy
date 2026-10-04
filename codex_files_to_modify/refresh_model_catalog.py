@@ -49,6 +49,8 @@ def main():
         help="your current merged catalog (custom models are preserved)")
     parser.add_argument("--out", help="output path; defaults to --current")
     parser.add_argument("--official", help="fetched official catalog JSON; skips the network fetch")
+    parser.add_argument("--cache",
+        help="also synchronize the desktop app's models_cache.json with the same merge")
     parser.add_argument("--endpoint", default="http://127.0.0.1:4100",
         help="router or backend to fetch the official catalog from")
     parser.add_argument("--client-version",
@@ -84,6 +86,23 @@ def main():
           f"({len(official_models)} official + {len(custom_models)} custom)")
     if new_slugs:
         print(f"new official models: {', '.join(new_slugs)}")
+
+    if args.cache:
+        cache_path = os.path.expanduser(args.cache)
+        try:
+            with open(cache_path, encoding="utf-8") as f:
+                cache = json.load(f)
+            cache_version = cache.get("client_version") if isinstance(cache, dict) else None
+        except (OSError, json.JSONDecodeError):
+            cache_version = None
+        cache_models = list(official_models) + custom_models
+        merged_cache = {"client_version": cache_version, "models": cache_models}
+        tmp_cache = cache_path + ".tmp"
+        with open(tmp_cache, "w", encoding="utf-8") as f:
+            json.dump(merged_cache, f, indent=2)
+            f.write("\n")
+        os.replace(tmp_cache, cache_path)
+        print(f"wrote {cache_path} ({len(cache_models)} models)")
 
 
 if __name__ == "__main__":

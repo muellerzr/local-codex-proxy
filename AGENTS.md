@@ -53,6 +53,11 @@ to do that end to end.
    `[profiles.glm53flash]` profile only as a troubleshooting path.
 6. **Restart Codex or create a new chat**: Codex reads provider config at
    session start.
+   If the model picker still shows only built-in models, the desktop app is
+   falling back to its own cache at `~/.codex/models_cache.json`. Synchronize
+   that cache with the merged catalog (keep a backup), then fully quit and
+   reopen Codex:
+   `python3 codex_files_to_modify/refresh_model_catalog.py --current <merged.json> --official <official.json> --cache ~/.codex/models_cache.json`
 7. **Verify**: check `codex --strict-config --help`, then
    `curl http://127.0.0.1:4100/v1/responses -H 'Content-Type: application/json' --data '{"model":"<slug>","input":"Reply with exactly OK","max_output_tokens":128,"store":false,"stream":false}'`.
    Expect a completed Responses API object. Then have the user open a new
